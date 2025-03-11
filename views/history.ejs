@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor History - Climate Monitor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #f5f5f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .dashboard-card {
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+        }
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .navbar {
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+        }
+        .table th {
+            background-color: #f8f9fa;
+        }
+        .table-hover tbody tr:hover {
+            background-color: rgba(25, 135, 84, 0.1);
+        }
+        .pagination .page-link {
+            color: #198754;
+        }
+        .pagination .page-item.active .page-link {
+            background-color: #198754;
+            border-color: #198754;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .status-good {
+            background-color: #28a745;
+        }
+        .status-warning {
+            background-color: #ffc107;
+        }
+        .status-danger {
+            background-color: #dc3545;
+        }
+        .data-filtering {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-success mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-leaf me-2"></i>Climate Monitor
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/index"><i class="fas fa-home me-1"></i> Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/history"><i class="fas fa-history me-1"></i> History</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/analysis"><i class="fas fa-chart-line me-1"></i> Analysis</a>
+                    </li>
+                    <!-- Add logout button here -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt me-1"></i> Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2 class="mb-3">Sensor Data History</h2>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> 
+                    Displaying the most recent 30 sensor readings from your IoT devices. Use the filters below to refine your search.
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Filtering Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="data-filtering">
+                    <form id="filterForm" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="dateRange" class="form-label">Date Range</label>
+                            <select class="form-select" id="dateRange" name="dateRange">
+                                <option value="1" selected>Last 24 Hours</option>
+                                <option value="3">Last 3 Days</option>
+                                <option value="7">Last 7 Days</option>
+                                <option value="30">Last 30 Days</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="sensorType" class="form-label">Sensor Focus</label>
+                            <select class="form-select" id="sensorType" name="sensorType">
+                                <option value="all" selected>All Sensors</option>
+                                <option value="temperature">Temperature</option>
+                                <option value="humidity">Humidity</option>
+                                <option value="soilMoisture">Soil Moisture</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="sortBy" class="form-label">Sort By</label>
+                            <select class="form-select" id="sortBy" name="sortBy">
+                                <option value="newest" selected>Newest First</option>
+                                <option value="oldest">Oldest First</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="fas fa-filter me-2"></i>Apply Filters
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card dashboard-card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Date & Time</th>
+                                        <th>Temperature (°C)</th>
+                                        <th>Humidity (%)</th>
+                                        <th>Soil Moisture (%)</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% if (sensorData && sensorData.length > 0) { %>
+                                        <% sensorData.forEach((data, index) => { %>
+                                            <tr>
+                                                <td><%= index + 1 %></td>
+                                                <td><%= new Date(data.timestamp).toLocaleString() %></td>
+                                                <td>
+                                                    <% if (data.temperature) { %>
+                                                        <%= data.temperature.toFixed(1) %>
+                                                        <% 
+                                                        let tempClass = "status-good";
+                                                        if (data.temperature > 30) tempClass = "status-danger";
+                                                        else if (data.temperature < 10) tempClass = "status-warning";
+                                                        %>
+                                                        <span class="status-indicator <%= tempClass %>"></span>
+                                                    <% } else { %>
+                                                        N/A
+                                                    <% } %>
+                                                </td>
+                                                <td>
+                                                    <% if (data.humidity) { %>
+                                                        <%= data.humidity.toFixed(1) %>
+                                                        <% 
+                                                        let humidityClass = "status-good";
+                                                        if (data.humidity > 80) humidityClass = "status-warning";
+                                                        else if (data.humidity < 30) humidityClass = "status-warning";
+                                                        %>
+                                                        <span class="status-indicator <%= humidityClass %>"></span>
+                                                    <% } else { %>
+                                                        N/A
+                                                    <% } %>
+                                                </td>
+                                                <td>
+                                                    <% if (data.soilMoisture) { %>
+                                                        <%= data.soilMoisture.toFixed(1) %>
+                                                        <% 
+                                                        let moistureClass = "status-good";
+                                                        if (data.soilMoisture > 80) moistureClass = "status-warning";
+                                                        else if (data.soilMoisture < 30) moistureClass = "status-danger";
+                                                        %>
+                                                        <span class="status-indicator <%= moistureClass %>"></span>
+                                                    <% } else { %>
+                                                        N/A
+                                                    <% } %>
+                                                </td>
+                                                <td>
+                                                    <% 
+                                                    let overallStatus = "Normal";
+                                                    let statusClass = "text-success";
+                                                    
+                                                    // Determine overall status based on sensor readings
+                                                    if ((data.temperature && (data.temperature > 30 || data.temperature < 10)) ||
+                                                        (data.humidity && (data.humidity > 80 || data.humidity < 30)) ||
+                                                        (data.soilMoisture && (data.soilMoisture > 80 || data.soilMoisture < 30))) {
+                                                        
+                                                        if (data.temperature > 30 || data.soilMoisture < 30) {
+                                                            overallStatus = "Alert";
+                                                            statusClass = "text-danger";
+                                                        } else {
+                                                            overallStatus = "Warning";
+                                                            statusClass = "text-warning";
+                                                        }
+                                                    }
+                                                    %>
+                                                    <span class="<%= statusClass %>"><i class="fas fa-circle me-1"></i><%= overallStatus %></span>
+                                                </td>
+                                            </tr>
+                                        <% }); %>
+                                    <% } else { %>
+                                        <tr>
+                                            <td colspan="6" class="text-center">No sensor data available</td>
+                                        </tr>
+                                    <% } %>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="row mt-4">
+            <div class="col-12 d-flex justify-content-center">
+                <nav aria-label="Page navigation">
+                    <ul class="pagination">
+                        <li class="page-item disabled">
+                            <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
+                        </li>
+                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                        <li class="page-item"><a class="page-link" href="#">2</a></li>
+                        <li class="page-item"><a class="page-link" href="#">3</a></li>
+                        <li class="page-item">
+                            <a class="page-link" href="#">Next</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Download Section -->
+        <div class="row mt-4 mb-5">
+            <div class="col-12">
+                <div class="card dashboard-card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-download me-2 text-success"></i>Export Data
+                        </h5>
+                        <p class="card-text">Download your sensor data in your preferred format for further analysis or record-keeping.</p>
+                        <div class="row">
+                            <div class="col-md-4 mb-2">
+                                <button class="btn btn-outline-success w-100" id="downloadCSV">
+                                    <i class="fas fa-file-csv me-2"></i>CSV Format
+                                </button>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <button class="btn btn-outline-success w-100" id="downloadJSON">
+                                    <i class="fas fa-file-code me-2"></i>JSON Format
+                                </button>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <button class="btn btn-outline-success w-100" id="downloadPDF">
+                                    <i class="fas fa-file-pdf me-2"></i>PDF Report
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-dark text-light py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5><i class="fas fa-leaf me-2"></i>Climate Monitor</h5>
+                    <p>Real-time environmental monitoring with IoT technology</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p>© <%= new Date().getFullYear() %> Climate Monitor</p>
+                    <p class="mb-0">Powered by ThingSpeak & IoT Sensors</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Store the sensor data in a JavaScript variable
+        const sensorData = <%- JSON.stringify(sensorData || []) %>;
+        
+        // Filtering functionality
+        document.getElementById('filterForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const dateRange = document.getElementById('dateRange').value;
+            const sensorType = document.getElementById('sensorType').value;
+            const sortBy = document.getElementById('sortBy').value;
+            
+            // Construct query parameters
+            const params = new URLSearchParams();
+            params.append('dateRange', dateRange);
+            params.append('sensorType', sensorType);
+            params.append('sortBy', sortBy);
+            
+            // Redirect with query parameters
+            window.location.href = `/history?${params.toString()}`;
+        });
+        
+        // CSV Download functionality
+        document.getElementById('downloadCSV').addEventListener('click', function() {
+            if (sensorData.length === 0) {
+                alert('No data available to download');
+                return;
+            }
+            
+            // Create CSV content
+            let csvContent = 'data:text/csv;charset=utf-8,';
+            csvContent += 'Index,Date,Time,Temperature (°C),Humidity (%),Soil Moisture (%),Status\n';
+            
+            sensorData.forEach((data, index) => {
+                const date = new Date(data.timestamp);
+                const dateStr = date.toLocaleDateString();
+                const timeStr = date.toLocaleTimeString();
+                
+                // Determine status
+                let status = 'Normal';
+                if ((data.temperature && (data.temperature > 30 || data.temperature < 10)) ||
+                    (data.humidity && (data.humidity > 80 || data.humidity < 30)) ||
+                    (data.soilMoisture && (data.soilMoisture > 80 || data.soilMoisture < 30))) {
+                    
+                    if (data.temperature > 30 || data.soilMoisture < 30) {
+                        status = 'Alert';
+                    } else {
+                        status = 'Warning';
+                    }
+                }
+                
+                const temperature = data.temperature ? data.temperature.toFixed(1) : 'N/A';
+                const humidity = data.humidity ? data.humidity.toFixed(1) : 'N/A';
+                const soilMoisture = data.soilMoisture ? data.soilMoisture.toFixed(1) : 'N/A';
+                
+                csvContent += `${index + 1},${dateStr},${timeStr},${temperature},${humidity},${soilMoisture},${status}\n`;
+            });
+            
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', `climate_data_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+        
+        // JSON Download functionality
+        document.getElementById('downloadJSON').addEventListener('click', function() {
+            if (sensorData.length === 0) {
+                alert('No data available to download');
+                return;
+            }
+            
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sensorData, null, 2));
+            const link = document.createElement('a');
+            link.setAttribute('href', dataStr);
+            link.setAttribute('download', `climate_data_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+        
+        // PDF Download placeholder
+        document.getElementById('downloadPDF').addEventListener('click', function() {
+            alert('PDF generation feature will be available in the next update.');
+        });
+    </script>
+</body>
+</html>

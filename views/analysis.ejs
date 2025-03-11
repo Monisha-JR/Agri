@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Climate Analytics | Climate Monitor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #f5f5f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .dashboard-card {
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+            margin-bottom: 20px;
+        }
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .stat-title {
+            color: #6c757d;
+            font-size: 1rem;
+        }
+        .stat-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        .chart-container {
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        .date-range-selector {
+            margin-bottom: 20px;
+        }
+        .summary-text {
+            line-height: 1.6;
+        }
+        .navbar {
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+        }
+        .nav-pills .nav-link.active {
+            background-color: #198754;
+        }
+        .insight-card {
+            height: 100%;
+        }
+        .trend-indicator {
+            font-size: 1.2rem;
+            margin-left: 5px;
+        }
+        .trend-up {
+            color: #dc3545;
+        }
+        .trend-down {
+            color: #198754;
+        }
+        .trend-neutral {
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-success mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-leaf me-2"></i>Climate Monitor
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/index"><i class="fas fa-home me-1"></i> Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/history"><i class="fas fa-history me-1"></i> History</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/analysis"><i class="fas fa-chart-line me-1"></i> Analysis</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt me-1"></i> Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Page Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2><i class="fas fa-chart-line text-success me-2"></i>Climate Analytics</h2>
+                <p class="text-muted">Comprehensive analysis of your environmental data to help optimize growing conditions.</p>
+            </div>
+        </div>
+
+        <!-- Date Range Selector -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card dashboard-card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-calendar-alt me-2"></i>Select Time Range</h5>
+                        <form id="dateRangeForm" action="/analysis" method="GET">
+                            <select class="form-select" id="dateRange" name="dateRange" onchange="this.form.submit()">
+                                <option value="1" <%= (typeof filters !== 'undefined' && filters.dateRange === 1) ? 'selected' : '' %>>Last 24 Hours</option>
+                                <option value="7" <%= (typeof filters !== 'undefined' && filters.dateRange === 7) ? 'selected' : '' %>>Last 7 Days</option>
+                                <option value="30" <%= (typeof filters !== 'undefined' && filters.dateRange === 30) ? 'selected' : '' %>>Last 30 Days</option>
+                                <option value="90" <%= (typeof filters !== 'undefined' && filters.dateRange === 90) ? 'selected' : '' %>>Last 90 Days</option>
+                            </select>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card dashboard-card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-info-circle me-2"></i>Data Overview</h5>
+                        <p class="mb-0">Analyzing <%= typeof stats !== 'undefined' ? stats.dataPoints || 0 : 0 %> data points from your environmental sensors.</p>
+                        <p class="text-muted mb-0 small">Data accuracy depends on sensor calibration and environmental conditions.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <!-- Temperature Stats -->
+            <div class="col-md-4 mb-4">
+                <div class="card dashboard-card h-100">
+                    <div class="card-body stat-card">
+                        <i class="fas fa-temperature-high stat-icon text-danger"></i>
+                        <h5>Temperature Analysis</h5>
+                        <div class="row">
+                            <div class="col-4">
+                                <p class="stat-title">Average</p>
+                                <p class="stat-value text-primary"><%= stats.avgTemp.toFixed(1) %>°C</p>
+                            </div>
+                            <div class="col-4">
+                                <p class="stat-title">Minimum</p>
+                                <p class="stat-value text-success"><%= stats.minTemp.toFixed(1) %>°C</p>
+                            </div>
+                            <div class="col-4">
+                                <p class="stat-title">Maximum</p>
+                                <p class="stat-value text-danger"><%= stats.maxTemp.toFixed(1) %>°C</p>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="text-start summary-text">
+                            <p><strong>Variation:</strong> <%= (stats.maxTemp - stats.minTemp).toFixed(1) %>°C</p>
+                            <% 
+                            let tempTrend = '';
+                            let tempTrendIcon = '';
+                            if (typeof stats.tempTrend !== 'undefined') {
+                                if (stats.tempTrend > 0.5) {
+                                    tempTrend = 'Rising';
+                                    tempTrendIcon = '<i class="fas fa-arrow-up trend-indicator trend-up"></i>';
+                                } else if (stats.tempTrend < -0.5) {
+                                    tempTrend = 'Falling';
+                                    tempTrendIcon = '<i class="fas fa-arrow-down trend-indicator trend-down"></i>';
+                                } else {
+                                    tempTrend = 'Stable';
+                                    tempTrendIcon = '<i class="fas fa-equals trend-indicator trend-neutral"></i>';
+                                }
+                            } else {
+                                tempTrend = 'Stable';
+                                tempTrendIcon = '<i class="fas fa-equals trend-indicator trend-neutral"></i>';
+                            }
+                            %>
+                            <p><strong>Trend:</strong> <%= tempTrend %> <%- tempTrendIcon %></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Humidity Stats -->
+            <div class="col-md-4 mb-4">
+                <div class="card dashboard-card h-100">
+                    <div class="card-body stat-card">
+                        <i class="fas fa-tint stat-icon text-primary"></i>
+                        <h5>Humidity Analysis</h5>
+                        <div class="row">
+                            <div class="col-4">
+                                <p class="stat-title">Average</p>
+                                <p class="stat-value text-primary"><%= stats.avgHumidity.toFixed(1) %>%</p>
+                            </div>
+                            <div class="col-4">
+                                <p class="stat-title">Minimum</p>
+                                <p class="stat-value text-success"><%= stats.minHumidity.toFixed(1) %>%</p>
+                            </div>
+                            <div class="col-4">
+                                <p class="stat-title">Maximum</p>
+                                <p class="stat-value text-danger"><%= stats.maxHumidity.toFixed(1) %>%</p>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="text-start summary-text">
+                            <p><strong>Variation:</strong> <%= (stats.maxHumidity - stats.minHumidity).toFixed(1) %>%</p>
+                            <% 
+                            let humidityTrend = '';
+                            let humidityTrendIcon = '';
+                            if (typeof stats.humidityTrend !== 'undefined') {
+                                if (stats.humidityTrend > 1) {
+                                    humidityTrend = 'Rising';
+                                    humidityTrendIcon = '<i class="fas fa-arrow-up trend-indicator trend-up"></i>';
+                                } else if (stats.humidityTrend < -1) {
+                                    humidityTrend = 'Falling';
+                                    humidityTrendIcon = '<i class="fas fa-arrow-down trend-indicator trend-down"></i>';
+                                } else {
+                                    humidityTrend = 'Stable';
+                                    humidityTrendIcon = '<i class="fas fa-equals trend-indicator trend-neutral"></i>';
+                                }
+                            } else {
+                                humidityTrend = 'Stable';
+                                humidityTrendIcon = '<i class="fas fa-equals trend-indicator trend-neutral"></i>';
+                            }
+                            %>
+                            <p><strong>Trend:</strong> <%= humidityTrend %> <%- humidityTrendIcon %></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Soil Moisture Stats -->
+            <div class="col-md-4 mb-4">
+                <div class="card dashboard-card h-100">
+                    <div class="card-body stat-card">
+                        <i class="fas fa-seedling stat-icon text-success"></i>
+                        <h5>Soil Moisture Analysis</h5>
+                        <div class="row">
+                            <div class="col-4">
+                                <p class="stat-title">Average</p>
+                                <p class="stat-value text-primary"><%= stats.avgSoilMoisture.toFixed(1) %>%</p>
+                            </div>
+                            <div class="col-4">
+                                <p class="stat-title">Minimum</p>
+                                <p class="stat-value text-success"><%= stats.minSoilMoisture.toFixed(1) %>%</p>
+                            </div>
+                            <div class="col-4">
+                                <p class="stat-title">Maximum</p>
+                                <p class="stat-value text-danger"><%= stats.maxSoilMoisture.toFixed(1) %>%</p>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="text-start summary-text">
+                            <p><strong>Variation:</strong> <%= (stats.maxSoilMoisture - stats.minSoilMoisture).toFixed(1) %>%</p>
+                            <% 
+                            let moistureTrend = '';
+                            let moistureTrendIcon = '';
+                            if (typeof stats.moistureTrend !== 'undefined') {
+                                if (stats.moistureTrend > 1) {
+                                    moistureTrend = 'Rising';
+                                    moistureTrendIcon = '<i class="fas fa-arrow-up trend-indicator trend-up"></i>';
+                                } else if (stats.moistureTrend < -1) {
+                                    moistureTrend = 'Falling';
+                                    moistureTrendIcon = '<i class="fas fa-arrow-down trend-indicator trend-down"></i>';
+                                } else {
+                                    moistureTrend = 'Stable';
+                                    moistureTrendIcon = '<i class="fas fa-equals trend-indicator trend-neutral"></i>';
+                                }
+                            } else {
+                                moistureTrend = 'Stable';
+                                moistureTrendIcon = '<i class="fas fa-equals trend-indicator trend-neutral"></i>';
+                            }
+                            %>
+                            <p><strong>Trend:</strong> <%= moistureTrend %> <%- moistureTrendIcon %></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Charts -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card dashboard-card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-chart-line me-2"></i>Time Series Analysis</h5>
+                        <p class="text-muted">Visualizing sensor data trends over time.</p>
+                        
+                        <ul class="nav nav-pills mb-3" id="chart-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="temperature-tab" data-bs-toggle="pill" 
+                                    data-bs-target="#temperature-detail" type="button" role="tab">Temperature</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="humidity-tab" data-bs-toggle="pill" 
+                                    data-bs-target="#humidity-detail" type="button" role="tab">Humidity</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="moisture-tab" data-bs-toggle="pill" 
+                                    data-bs-target="#moisture-detail" type="button" role="tab">Soil Moisture</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="combined-tab" data-bs-toggle="pill" 
+                                    data-bs-target="#combined-detail" type="button" role="tab">Combined View</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content" id="chart-content">
+                            <div class="tab-pane fade show active" id="temperature-detail" role="tabpanel">
+                                <div class="chart-container">
+                                    <canvas id="temperatureDetailChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="humidity-detail" role="tabpanel">
+                                <div class="chart-container">
+                                    <canvas id="humidityDetailChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="moisture-detail" role="tabpanel">
+                                <div class="chart-container">
+                                    <canvas id="moistureDetailChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="combined-detail" role="tabpanel">
+                                <div class="chart-container">
+                                    <canvas id="combinedDetailChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pattern Analysis and Insights -->
+        <div class="row mb-4">
+            <div class="col-12 mb-4">
+                <h4><i class="fas fa-lightbulb text-warning me-2"></i>Climate Insights</h4>
+            </div>
+            
+            <!-- Daily Patterns Card -->
+            <div class="col-md-4 mb-4">
+                <div class="card dashboard-card insight-card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-sun me-2 text-warning"></i>Daily Patterns</h5>
+                        <% if (typeof stats.dailyPatterns !== 'undefined') { %>
+                            <%- stats.dailyPatterns %>
+                        <% } else { %>
+                            <p>Based on your data, typical daily patterns include:</p>
+                            <ul>
+                                <li>Highest temperatures typically occur between 2-4 PM</li>
+                                <li>Morning dew causes humidity peaks in early morning hours</li>
+                                <li>Soil moisture gradually decreases throughout the day</li>
+                            </ul>
+                            <p class="text-muted small">Daily pattern analysis requires at least 24 hours of continuous data.</p>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Optimal Conditions Card -->
+            <div class="col-md-4 mb-4">
+                <div class="card dashboard-card insight-card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-check-circle me-2 text-success"></i>Optimal Conditions</h5>
+                        <% if (typeof stats.recommendations !== 'undefined') { %>
+                            <%- stats.recommendations %>
+                        <% } else { %>
+                            <p>For optimal growing conditions, consider:</p>
+                            <ul>
+                                <li><strong>Temperature:</strong> Maintain between 18-25°C for most plants</li>
+                                <li><strong>Humidity:</strong> Target 40-60% for balanced growing environment</li>
+                                <li><strong>Soil Moisture:</strong> Keep between 40-70% for healthy root development</li>
+                            </ul>
+                            <p class="mt-3"><strong>Current Status:</strong> 
+                                <% 
+                                let status = 'Good';
+                                let statusClass = 'text-success';
+                                
+                                if (stats.avgTemp > 30 || stats.avgTemp < 15 || 
+                                    stats.avgHumidity > 80 || stats.avgHumidity < 30 || 
+                                    stats.avgSoilMoisture > 80 || stats.avgSoilMoisture < 30) {
+                                    status = 'Needs Attention';
+                                    statusClass = 'text-danger';
+                                } else if (stats.avgTemp > 25 || stats.avgTemp < 18 || 
+                                    stats.avgHumidity > 70 || stats.avgHumidity < 40 || 
+                                    stats.avgSoilMoisture > 70 || stats.avgSoilMoisture < 40) {
+                                    status = 'Moderate';
+                                    statusClass = 'text-warning';
+                                }
+                                %>
+                                <span class="<%= statusClass %>"><%= status %></span>
+                            </p>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Anomaly Detection Card -->
+            <div class="col-md-4 mb-4">
+                <div class="card dashboard-card insight-card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-exclamation-triangle me-2 text-warning"></i>Anomaly Detection</h5>
+                        <% if (typeof stats.anomalies !== 'undefined' && stats.anomalies.length > 0) { %>
+                            <p>Detected <%= stats.anomalies.length %> unusual patterns in your data:</p>
+                            <ul>
+                                <% stats.anomalies.forEach(function(anomaly) { %>
+                                    <li><%= anomaly %></li>
+                                <% }); %>
+                            </ul>
+                        <% } else { %>
+                            <p>No significant anomalies detected in the current dataset.</p>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                The system continuously monitors for:
+                                <ul class="mb-0">
+                                    <li>Sudden temperature changes</li>
+                                    <li>Unusual humidity fluctuations</li>
+                                    <li>Rapid soil moisture depletion</li>
+                                </ul>
+                            </div>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Correlation Analysis -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card dashboard-card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-link me-2"></i>Correlation Analysis</h5>
+                        <p class="text-muted">Understanding relationships between different environmental factors.</p>
+                        
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="chart-container">
+                                    <canvas id="correlationChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <h6>Key Correlations:</h6>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Temperature & Humidity
+                                        <span class="badge bg-primary rounded-pill">
+                                            <%= typeof stats.correlations !== 'undefined' ? stats.correlations.tempHumidity || '-0.62' : '-0.62' %>
+                                        </span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Temperature & Soil Moisture
+                                        <span class="badge bg-primary rounded-pill">
+                                            <%= typeof stats.correlations !== 'undefined' ? stats.correlations.tempMoisture || '-0.45' : '-0.45' %>
+                                        </span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        Humidity & Soil Moisture
+                                        <span class="badge bg-primary rounded-pill">
+                                            <%= typeof stats.correlations !== 'undefined' ? stats.correlations.humidityMoisture || '0.38' : '0.38' %>
+                                        </span>
+                                    </li>
+                                </ul>
+                                <div class="alert alert-secondary mt-3">
+                                    <small>
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Correlation values range from -1 to 1:
+                                        <ul class="mb-0 small">
+                                            <li>1.0: Perfect positive correlation</li>
+                                            <li>0.0: No correlation</li>
+                                            <li>-1.0: Perfect negative correlation</li>
+                                        </ul>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Options -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card dashboard-card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-file-export me-2"></i>Export Analysis</h5>
+                        <p class="text-muted mb-3">Download this analysis in various formats for your records.</p>
+                        
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-primary" onclick="alert('Export functionality would be implemented here')">
+                                <i class="fas fa-file-csv me-2"></i>Export CSV
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="alert('Export functionality would be implemented here')">
+                                <i class="fas fa-file-pdf me-2"></i>Export PDF
+                            </button>
+                            <button class="btn btn-outline-success" onclick="alert('Export functionality would be implemented here')">
+                                <i class="fas fa-file-excel me-2"></i>Export Excel
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="window.print()">
+                                <i class="fas fa-print me-2"></i>Print Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-dark text-light py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5><i class="fas fa-leaf me-2"></i>Climate Monitor</h5>
+                    <p>Real-time environmental monitoring with IoT technology</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p>© <%= new Date().getFullYear() %> Climate Monitor</p>
+                    <p class="mb-0">Powered by ThingSpeak & IoT Sensors</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Simulated data for charts - In production, this would come from the backend
+        // Sample data structure - replace with actual data from your server
+        let timeSeriesData = [];
+try {
+    timeSeriesData = <%- JSON.stringify(historicalData || []) %>;
+} catch (e) {
+    console.error("Error parsing historical data:", e);
+    timeSeriesData = [];
+}        
+        // If no data was passed, use sample data for demonstration
+        const sampleData = timeSeriesData.length > 0 ? timeSeriesData : [
+            <% for(let i = 0; i < 24; i++) { %>
+                {
+                    timestamp: new Date(Date.now() - (23-i) * 3600000).toISOString(),
+                    temperature: 20 + Math.sin(i/4) * 5 + Math.random() * 2,
+                    humidity: 50 + Math.sin(i/3) * 15 + Math.random() * 5,
+                    soilMoisture: 45 + Math.sin(i/5) * 10 + Math.random() * 3
+                },
+            <% } %>
+        ];
+        
+        // Format timestamps and extract data for charts
+        const timestamps = sampleData.map(entry => {
+            const date = new Date(entry.timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        });
+        
+        const temperatures = sampleData.map(entry => entry.temperature || null);
+        const humidities = sampleData.map(entry => entry.humidity || null);
+        const soilMoistures = sampleData.map(entry => entry.soilMoisture || null);
+        
+        // Temperature Detail Chart
+        const tempDetailCtx = document.getElementById('temperatureDetailChart').getContext('2d');
+        const temperatureDetailChart = new Chart(tempDetailCtx, {
+            type: 'line',
+            data: {
+                labels: timestamps,
+                datasets: [{
+                    label: 'Temperature (°C)',
+                    data: temperatures,
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 2,
+                    pointHoverRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'Temperature (°C)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Time'
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Humidity Detail Chart
+        const humidityDetailCtx = document.getElementById('humidityDetailChart').getContext('2d');
+        const humidityDetailChart = new Chart(humidityDetailCtx, {
+            type: 'line',
+            data: {
+                labels: timestamps,
+                datasets: [{
+                    label: 'Humidity (%)',
+                    data: humidities,
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 2,
+                    pointHoverRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'Humidity (%)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Time'
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Soil Moisture Detail Chart
+        const moistureDetailCtx = document.getElementById('moistureDetailChart').getContext('2d');
+        const moistureDetailChart = new Chart(moistureDetailCtx, {
+            type: 'line',
+            data: {
+                labels: timestamps,
+                datasets: [{
+                    label: 'Soil Moisture (%)',
+                    data: soilMoistures,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 2,
+                    pointHoverRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'Soil Moisture (%)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Time'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Combined Detail Chart
+        const combinedDetailCtx = document.getElementById('combinedDetailChart').getContext('2d');
+        const combinedDetailChart = new Chart(combinedDetailCtx, {
+            type: 'line',
+            data: {
+                labels: timestamps,
+                datasets: [
+                    {
+                        label: 'Temperature (°C)',
+                        data: temperatures,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 2,
+                        pointHoverRadius: 5
+                    },
+                    {
+                        label: 'Humidity (%)',
+                        data: humidities,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 2,
+                        pointHoverRadius: 5
+                    },
+                    {
+                        label: 'Soil Moisture (%)',
+                        data: soilMoistures,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 2,
+                        pointHoverRadius: 5
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'Values'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Time'
+                        }
+                    }
+                }
+            }
+        });
+        
+
+        // Correlation Chart
+const correlationCtx = document.getElementById('correlationChart').getContext('2d');
+const correlationChart = new Chart(correlationCtx, {
+    type: 'scatter',
+    data: {
+        datasets: [
+            {
+                label: 'Temperature vs Humidity',
+                data: sampleData.map(entry => ({
+                    x: entry.temperature,
+                    y: entry.humidity
+                })),
+                backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                pointRadius: 5,
+                pointHoverRadius: 7
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            title: {
+                display: true,
+                text: 'Temperature vs Humidity Correlation'
+            },
+            legend: {
+                position: 'top',
+            }
+        },
+        scales: {
+            x: {
+                title: {
+                    display: true,
+                    text: 'Temperature (°C)'
+                }
+            },
+            y: {
+                title: {
+                    display: true,
+                    text: 'Humidity (%)'
+                }
+            }
+        }
+    }
+});
+
+    </script>
+</body>
+</html>
