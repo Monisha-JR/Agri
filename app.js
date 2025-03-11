@@ -84,6 +84,50 @@ cron.schedule('* * * * *', () => {
     console.log('🔄 Running scheduled data fetch from ThingSpeak');
     fetchAndStoreThingSpeakData();
 });
+// Enhanced Route to get climate history page with filtering options
+app.get('/history', async (req, res) => {
+    try {
+        // Extract query parameters for filtering
+        const dateRange = parseInt(req.query.dateRange) || 1; // Default to 1 day
+        const sensorType = req.query.sensorType || 'all'; // Default to all sensors
+        const sortBy = req.query.sortBy || 'newest'; // Default to newest first
+        
+        // Calculate the date range
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - dateRange);
+        
+        // Build the query object
+        const query = { timestamp: { $gte: startDate } };
+        
+        // Add sensor type filtering if needed
+        if (sensorType !== 'all') {
+            query[sensorType] = { $ne: null }; // Only get records where this sensor has data
+        }
+        
+        // Determine sort order
+        const sortOrder = sortBy === 'newest' ? -1 : 1;
+        
+        // Get data from MongoDB with filters and limit to 30 records
+        const sensorData = await SensorData.find(query)
+            .sort({ timestamp: sortOrder })
+            .limit(30);
+        
+        // Render the history page with the filtered data
+        res.render('history', { 
+            sensorData, 
+            user: req.session ? req.session.user : null,
+            filters: {
+                dateRange,
+                sensorType,
+                sortBy
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error retrieving sensor history:', error.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 
 // Modify the index route
 app.get('/index', async (req, res) => {
